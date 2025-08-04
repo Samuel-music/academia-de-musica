@@ -1,24 +1,27 @@
 // The exported code uses Tailwind CSS. Install Tailwind CSS in your dev environment to ensure all styles work.
 import React, { useState, useEffect, useRef } from 'react';
+
 import { Swiper, SwiperSlide } from 'swiper/react';
 import { Pagination, Navigation, Autoplay } from 'swiper/modules';
 import { motion } from "motion/react";
 import 'swiper/css';
 import 'swiper/css/pagination';
 import 'swiper/css/navigation';
-import imgTrans1 from '../assets/abstract_background_technology.jpg'; //abstract_background_technology.jpg //tech-mask.svg
-import imgCarrossel1 from '../assets/man-accountan.jpg';
-import imgCarrossel2 from '../assets/contabil-2-1618x1080.jpg';
-import imgCarrossel3 from '../assets/contabil-3.webp';
-import imgLogo from '../assets/logo-icon-contabilidade.png';
-import imgFundo1 from '../assets/fundo1_contabil.png';
-import imgLogoEcontador from '../assets/pack_web_2013.png';
-import imgLogoNfStock from '../assets/nf-stock_color_rgb.svg';
-import gifFoguete from '../assets/rocket.gif';
-import webmFoguete from '../assets/rocket.webm';
-import webmFinance from '../assets/Finance2.webm';
-import webmChat from '../assets/Chat.webm';
-import webmRefresh from '../assets/Refresh.webm';
+import AvaliacoesCarrossel from './componentes/avaliacoes-carrossel';
+
+// Importações de imagens e vídeos
+import imgTrans1 from '../assets/violão-1.jpeg'; //abstract_background_technology.jpg //tech-mask.svg
+import imgCarrossel1 from '../assets/guitarra-1.jpg';
+import imgCarrossel2 from '../assets/piano-3.jpg';
+import imgCarrossel3 from '../assets/violão-3.jpg';
+import imgLogo from '../assets/Logo-Samuel-texto-SF.png';
+import instrument_1 from '../assets/tocando-guitarra-1.png';
+import instrument_2 from '../assets/tocando-teclado-2.png';
+import instrument_3 from '../assets/tocando-violão-1.png';
+
+// Locomotive Scroll
+import LocomotiveScroll from 'locomotive-scroll';
+import 'locomotive-scroll/dist/locomotive-scroll.css';
 
 
 // =========================================================================================================================================================================================
@@ -47,24 +50,39 @@ const useIntersectionObserver = (options = {}) => {
 };
 
 
+
 // =====================================================================================================================================================================================
-const FadeInSection = ({ children, className = '', duration }) => {
+const FadeInSection = ({ children, className = '', duration, delay = 0, threshold = 0.5 }) => {
   const [ref, isVisible] = useIntersectionObserver({
-    threshold: 0.5,
+    threshold: threshold,
     rootMargin: '0px 0px -50px 0px',
   });
   const [hasBeenVisible, setHasBeenVisible] = useState(false);
+  const [style, setStyle] = useState({
+    opacity: 0,
+    transition: `opacity ${duration || 1000}ms cubic-bezier(0.4,0,0.2,1) ${delay}ms`,
+  });
 
   useEffect(() => {
     if (isVisible && !hasBeenVisible) {
       setHasBeenVisible(true);
+      setTimeout(() => {
+        setStyle({
+          opacity: 1,
+          transition: `opacity ${duration || 1000}ms cubic-bezier(0.4,0,0.2,1) ${delay}ms`,
+        });
+      }, 10); // pequeno delay para garantir transição
     }
-  }, [isVisible, hasBeenVisible]);
+  }, [isVisible, hasBeenVisible, duration, delay]);
 
   return (
     <div
       ref={ref}
-      className={`transition-opacity ${duration ? 'duration-[' + duration + ']' : 'duration-1000'} ease-out ${hasBeenVisible ? 'opacity-100' : 'opacity-0'} ${className}`}
+      className={`transition-opacity ease-out ${className}`}
+      style={hasBeenVisible ? style : {
+        opacity: 0,
+        transition: `opacity ${duration || 1000}ms cubic-bezier(0.4,0,0.2,1) ${delay}ms`,
+      }}
     >
       {children}
     </div>
@@ -145,6 +163,22 @@ const PlataformaImg = ({ src, minHeight, maxHeight, visible, delay = 0, scale })
 
 // ===================================================================================================================================================================
 const App = () => { // React.FC
+  // ----------------------------------------------------------------------------------------------------------------------------
+  const scrollRef = useRef(null);
+  useEffect(() => {
+    const scroll = new LocomotiveScroll({
+      el: scrollRef.current,
+      smooth: true,
+      lerp: 0.10,
+      multiplier: 1.4,
+      class: 'is-inview',
+      getDirection: true,
+      getSpeed: true,
+    });
+    return () => {
+      scroll.destroy();
+    };
+  }, []);
   // ---------------------------------------------------------------------------------------------------------------------------
   // Controle de animação para a seção Motion
   const [motionSectionRef, motionSectionVisible] = useIntersectionObserver({ threshold: 0.5 });
@@ -173,9 +207,11 @@ const App = () => { // React.FC
     return () => window.removeEventListener('resize', handleResize);
   }, [isMenuOpen]);
 
-  // Estado para forçar remount da animação
-  const [slideKey, setSlideKey] = useState(0);
+  // Estado para controlar slide ativo e slide ampliado
+  const [activeIndex, setActiveIndex] = useState(0); // Slide atualmente visível
+  const [zoomedIndex, setZoomedIndex] = useState(0); // Slide que está ampliado
   const swiperRef = useRef(null);
+  const SWIPER_SPEED = 2000; // igual ao speed do Swiper
 
   // Controle de animação em cascata da div e da imagem das Plataformas 1 e 2
   const [plataforma1DivVisible, setPlataforma1DivVisible] = useState(false);
@@ -185,6 +221,10 @@ const App = () => { // React.FC
   // Estado para hover das Plataformas
   const [plataforma1Hovered, setPlataforma1Hovered] = useState(false);
   const [plataforma2Hovered, setPlataforma2Hovered] = useState(false);
+
+  // Estado para hover do botão do WhatsApp
+  const [waBtnHovered, setWaBtnHovered] = useState(false);
+
   useEffect(() => {
     if (plataforma1DivVisible) {
       const timeout = setTimeout(() => setPlataforma1ImgVisible(true), 200); // 200ms após a div
@@ -198,44 +238,72 @@ const App = () => { // React.FC
     }
   }, [plataforma2DivVisible]);
 
-  // Função para atualizar a key ao trocar slide
-  const handleSlideChange = () => {
-    setSlideKey(prev => prev + 1);
+  // Ao iniciar a transição, mantenha o slide anterior ampliado até o fim da transição
+  const handleSlideChange = (swiper) => {
+    const newIndex = swiper.realIndex;
+    setActiveIndex(newIndex);
+    setTimeout(() => {
+      setZoomedIndex(newIndex);
+    }, SWIPER_SPEED);
   };
 
+  // ----------------------------------------------------------------------------------------------------------------------------------------
+  // Hook para detectar se a Modalidade 1 está visível
+  const [refModalidade2, isVisibleModalidade2] = useIntersectionObserver({ threshold: 0.5 });
+  // Novo estado para garantir que a animação só execute uma vez
+  const [modalidadesAnimadas, setModalidadesAnimadas] = useState(false);
+  useEffect(() => {
+    if (isVisibleModalidade2 && !modalidadesAnimadas) {
+      setModalidadesAnimadas(true);
+    }
+  }, [isVisibleModalidade2, modalidadesAnimadas]);
+  // Estado para hover das Modalidades
+  const [isHoveredModalidade1, setIsHoveredModalidade1] = useState(false);
+  const [isHoveredModalidade2, setIsHoveredModalidade2] = useState(false);
+  const [isHoveredModalidade3, setIsHoveredModalidade3] = useState(false);
+
+
+
+
+
+  {/* ======================================================================================================================================================================================================== */ }
   return (
-    <div className="min-h-screen bg-white">
+    <div ref={scrollRef} data-scroll-container className="min-h-screen _bg-gray-500 bg-[#cbcbcb]"> {/* bg-white */}
       {/* Navbar */}
-      <nav className="fixed top-0 left-0 right-0 z-50 bg-white bg-opacity-80 backdrop-blur-md">
+      <nav className="fixed top-0 left-0 right-0 z-50 bg-gray-900 bg-opacity-90 backdrop-blur-md">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center">
               <div className="flex-shrink-0">
-                <img
-                  src={imgLogo}
-                  //alt="Logo empresa"
-                  style={{ maxHeight: '64px' }}
-                  className={`h-16 w-auto py-[5px] ${logoAnimated ? 'fadein-scale-logo' : ''}`}
-                />
+                <a href="/">
+                  <img
+                    src={imgLogo}
+                    //alt="Logo empresa"
+                    style={{ maxHeight: '64px' }}
+                    className={`h-16 w-auto py-[5px] ${logoAnimated ? 'fadein-scale-logo' : ''}`}
+                  />
+                </a>
               </div>
               <div className="flex-shrink-0 ml-3 flex flex-col items-start justify-center">
 
                 <div className="flex flex-col">
-                  <FadeInSection className="delay-[400ms]" duration={'20s'}>
-                    <span className="text-gray-800 font-bold text-2xl leading-tight block w-max _animate-fadeIn" id="renove-text">RENOVE</span>
-                  </FadeInSection>
-                  <FadeInSection className="delay-[600ms]">
-                    <span className="text-gray-800 text-base leading-none block _animate-fadeIn" style={{ fontSize: '81%' }}>CONTABILIDADE</span>
-                  </FadeInSection>
+                  <a href="/">
+                    <FadeInSection className="delay-[400ms]" duration={'20s'}>
+                      <span className="text-gray-100 font-bold leading-tight block w-max _animate-fadeIn text-1xl md:text-2xl" id="logo-text">ACADEMIA DE MÚSICA</span>
+                    </FadeInSection>
+                    {/*<FadeInSection className="delay-[600ms]">
+                    <span className="text-gray-800 text-base leading-none block _animate-fadeIn" style={{ fontSize: '81%' }}>MUSICAL</span>
+                  </FadeInSection>*/}
+                  </a>
                 </div>
               </div>
             </div>
             <div className="hidden md:block">
               <div className="ml-10 flex items-center space-x-8">
-                <a href="#home_" className="text-gray-800 hover:text-blue-300 transition-colors duration-300 cursor-pointer whitespace-nowrap">Início</a>
-                <a href="#about_" className="text-gray-800 hover:text-blue-300 transition-colors duration-300 cursor-pointer whitespace-nowrap">Empresa</a>
-                <a href="#services_" className="text-gray-800 hover:text-blue-300 transition-colors duration-300 cursor-pointer whitespace-nowrap">Serviços</a>
-                <a href="#contact_" className="text-gray-800 hover:text-blue-300 transition-colors duration-300 cursor-pointer whitespace-nowrap">Contato</a>
+                <a className="text-gray-100 hover:text-blue-300 transition-colors duration-300 cursor-pointer whitespace-nowrap" href="#home" data-scroll-to>Início</a>
+                <a className="text-gray-100 hover:text-blue-300 transition-colors duration-300 cursor-pointer whitespace-nowrap" href="#services" data-scroll-to>Modalidades</a>
+                <a className="text-gray-100 hover:text-blue-300 transition-colors duration-300 cursor-pointer whitespace-nowrap" href="#about" data-scroll-to>Sobre</a>
+                <a className="text-gray-100 hover:text-blue-300 transition-colors duration-300 cursor-pointer whitespace-nowrap" href="#contact" data-scroll-to>Contato</a>
                 {/*<button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md transition-colors duration-300 !rounded-button cursor-pointer whitespace-nowrap"
                   onClick={() => window.location.href = "https://clickfacil.top/auth/sign-in"}>Entrar</button>*/}
               </div>
@@ -254,10 +322,10 @@ const App = () => { // React.FC
         {isMenuOpen && (
           <div className="md:hidden bg-black bg-opacity-90 backdrop-blur-md">
             <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3">
-              <a href="#" className="text-white hover:text-blue-300 block px-3 py-2 text-base font-medium cursor-pointer">Início</a>
-              <a href="#" className="text-white hover:text-blue-300 block px-3 py-2 text-base font-medium cursor-pointer">Empresa</a>
-              <a href="#" className="text-white hover:text-blue-300 block px-3 py-2 text-base font-medium cursor-pointer">Serviços</a>
-              <a href="#" className="text-white hover:text-blue-300 block px-3 py-2 text-base font-medium cursor-pointer">Contato</a>
+              <a className="text-white hover:text-blue-300 block px-3 py-2 text-base font-medium cursor-pointer" href="#home" data-scroll-to onClick={() => setIsMenuOpen(false)}>Início</a>
+              <a className="text-white hover:text-blue-300 block px-3 py-2 text-base font-medium cursor-pointer" href="#about" data-scroll-to onClick={() => setIsMenuOpen(false)}>Sobre</a>
+              <a className="text-white hover:text-blue-300 block px-3 py-2 text-base font-medium cursor-pointer" href="#services" data-scroll-to onClick={() => setIsMenuOpen(false)}>Modalidades</a>
+              <a className="text-white hover:text-blue-300 block px-3 py-2 text-base font-medium cursor-pointer" href="#contact" data-scroll-to onClick={() => setIsMenuOpen(false)}>Contato</a>
               {/*<button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md transition-colors duration-300 mt-2 w-full !rounded-button cursor-pointer whitespace-nowrap"
                 onClick={() => window.location.href = "https://clickfacil.top/auth/sign-in"}>Entrar</button>*/}
             </div>
@@ -266,91 +334,90 @@ const App = () => { // React.FC
       </nav>
 
       {/* Hero Section with Carousel */}
-      <div id='home' className="relative">
-        <FadeInSection className="delay-[500ms]">
+      <section id='home' className="relative pt-16" data-scroll-section>
+        <FadeInSection className="delay-[500ms] _mt-16">
           <Swiper
             modules={[Pagination, Navigation, Autoplay]}
             pagination={{ clickable: true }}
             navigation={true}
             autoplay={{ delay: 5_000, disableOnInteraction: false }}
             loop={true}
-            speed={1000}
-            className="h-[70vh] w-full mt-16"
+            speed={SWIPER_SPEED}
+            className="h-[70vh] w-full "
             onSlideChange={handleSlideChange}
-            onNavigationPrev={handleSlideChange}
-            onNavigationNext={handleSlideChange}
             ref={swiperRef}
           >
             <SwiperSlide>
-              <div className="relative h-full w-full">
-                <div className="absolute inset-0 bg-gradient-to-r from-black/70 to-black/30 z-10"></div>
-                <img
+              <div className="relative h-full w-full overflow-hidden">
+                <div className="absolute inset-0 bg-gradient-to-r from-black/70 to-black/10 z-10"></div>
+                <motion.img
                   src={imgCarrossel1}
                   title="Impulsione seu negócio com nossas soluções tecnológicas personalizadas"
-                  className="h-full w-full object-cover object-top"
+                  className="h-full w-full object-cover object-center"
+                  initial={{ scale: 1 }}
+                  animate={{ scale: zoomedIndex === 0 ? 1.3 : 1 }}
+                  transition={{
+                    duration: 25.0,
+                  }}
                 />
                 <div className="absolute inset-0 flex flex-col items-center justify-center z-20 text-center px-4 max-w-[700px] md:ml-40">
-                  <div className="fadein-slide-right" key={slideKey}>
-                    <h1 className="text-4xl md:text-5xl lg:text-4xl font-bold text-white mb-4">
-                      Você foca no seu negócio, a gente cuida do resto
+                  <div className="fadein-slide-right"
+                    style={{ animationDelay: '2s' }}
+                  >
+                    <h1 className="text-3xl md:text-5xl lg:text-4xl font-bold text-white mb-4">
+                      O primeiro passo para o <br />palco começa aqui
                     </h1>
-                    <p className="text-xl md:text-1xl text-gray-200 mb-8 max-w-3xl">
-                      Contabilidade especializada em gerar valor para sua empresa
-                    </p>
-                    <button className="bg-[#296b89] hover:bg-blue-700 text-white px-6 py-3 rounded-md text-lg font-medium transition-all duration-300 transform hover:scale-105 !rounded-button cursor-pointer whitespace-nowrap">
-                      Conheça Nossos Serviços
-                    </button>
                   </div>
                 </div>
-
               </div>
             </SwiperSlide>
             <SwiperSlide>
-              <div className="relative h-full w-full">
-                <div className="absolute inset-0 bg-gradient-to-r from-black/70 to-black/30 z-10"></div>
-                <img
+              <div className="relative h-full w-full overflow-hidden">
+                <div className="absolute inset-0 bg-gradient-to-r from-black/0 to-black/50 z-10"></div>
+                <motion.img
                   src={imgCarrossel2}
                   title="Tecnologia que impulsiona seu negócio"
-                  className="h-full w-full object-cover object-top"
+                  className="h-full w-full object-cover object-bottom"
+                  initial={{ scale: 1 }}
+                  animate={{ scale: zoomedIndex === 1 ? 1.3 : 1 }}
+                  transition={{
+                    duration: 40.0,
+                  }}
                 />
                 <div className="absolute inset-0 flex flex-col items-center justify-center z-20 text-center px-4">
-                  <div className="absolute inset-0 flex flex-col items-center justify-center z-20 text-center px-4 max-w-[700px] md:ml-40">
-                    <div className="fadein-slide-right" key={slideKey}>
-                      <h1 className="text-4xl md:text-5xl lg:text-4xl font-bold text-white mb-4">
-                        Traga a contabilidade de sua empresa
+                  <div className="absolute inset-0 flex flex-col items-center justify-center z-20 text-center px-4 max-w-[700px] md:ml-[60rem]">
+                    <div className="fadein-slide-right"
+                      style={{ animationDelay: '2s' }}
+                    >
+                      <h1 className="text-3xl md:text-5xl lg:text-4xl font-bold text-white mb-4">
+                        Aprender música é dar voz à alma
                       </h1>
-                      <p className="text-xl md:text-1xl text-gray-200 mb-8 max-w-3xl">
-                        E tenha a melhor assessoria tributária e consultoria empresarial do DF
-                      </p>
-                      <button className="bg-[#296b89] hover:bg-blue-700 text-white px-6 py-3 rounded-md text-lg font-medium transition-all duration-300 transform hover:scale-105 !rounded-button cursor-pointer whitespace-nowrap">
-                        Saiba mais
-                      </button>
                     </div>
                   </div>
-
                 </div>
               </div>
             </SwiperSlide>
             <SwiperSlide>
-              <div className="relative h-full w-full">
+              <div className="relative h-full w-full overflow-hidden">
                 <div className="absolute inset-0 bg-gradient-to-r from-black/70 to-black/30 z-10"></div>
-                <img
+                <motion.img
                   src={imgCarrossel3}
                   title="Inovação e resultados ao seu alcance"
                   className="h-full w-full object-cover object-top"
+                  initial={{ scale: 1 }}
+                  animate={{ scale: zoomedIndex === 2 ? 1.3 : 1 }}
+                  transition={{
+                    duration: 40.0,
+                  }}
                 />
                 <div className="absolute inset-0 flex flex-col items-center justify-center z-20 text-center px-4">
                   <div className="absolute inset-0 flex flex-col items-center justify-center z-20 text-center px-4 max-w-[700px] md:ml-40">
-                    <div className="fadein-slide-right" key={slideKey}>
-                      <h1 className="text-4xl md:text-5xl lg:text-4xl font-bold text-white mb-4">
-                        Conte conosco
+                    <div className="fadein-slide-right"
+                      style={{ animationDelay: '2s' }}
+                    >
+                      <h1 className="text-3xl md:text-5xl lg:text-4xl font-bold text-white mb-4">
+                        Transforme o seu sonho musical em realidade
                       </h1>
-                      <p className="text-xl md:text-1xl text-gray-200 mb-8 max-w-3xl">
-                        Para cuidar das finanças, administração e contabilidade da sua empresa
-                      </p>
-                      <button className="bg-[#296b89] hover:bg-blue-700 text-white px-6 py-3 rounded-md text-lg font-medium transition-all duration-300 transform hover:scale-105 !rounded-button cursor-pointer whitespace-nowrap">
-                        Sobre nós
-                      </button>
                     </div>
                   </div>
                 </div>
@@ -358,374 +425,300 @@ const App = () => { // React.FC
             </SwiperSlide>
           </Swiper>
         </FadeInSection>
-      </div>
+      </section>
 
 
       {/* ========================================================================================================================================================================= */}
       {/* Nossos Serviços */}
-      <FadeInSection>
-        <section id='services' className="py-20 px-4 bg-gray-200">
-          <div className="max-w-7xl mx-auto">
+      <section id='services' className="py-20 px-0 mb-[-40px] md:px-4 relative" data-scroll-section
+        style={{
+          background: 'radial-gradient(circle at 50% 30%, rgb(106 135 201) 0%, rgb(13 32 42) 100%)',
+          boxShadow: '0px 10px 20px #000000a2',
+          zIndex: 5
+        }}
+      >
+        {/* Imagem de fundo com opacidade */}
+        <div
+          className="absolute inset-0 w-full h-full bg-center bg-cover bg-no-repeat pointer-events-none"
+          style={{
+            backgroundImage: `url(${require('../assets/fundo-1.jpg')})`,
+            opacity: 0.15,
+            zIndex: 1,
+            backgroundPosition: 'center',
+            backgroundSize: 'cover',
+            backgroundRepeat: 'no-repeat',
+          }}
+          aria-hidden="true"
+        ></div>
+        <div className="max-w-7xl mx-auto _bg-green-300">
 
+          <FadeInSection delay={1000} threshold={1}>
             <div className="text-center mb-16">
-              <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">Alguns dos nossos serviços</h2>
+              <h2 className="text-3xl md:text-5xl font-bold text-gray-100 mb-4">Escolha seu instrumento</h2>
               {/*<p className="text-lg text-gray-600 max-w-2xl mx-auto">
                 Oferecemos soluções digitais completas para impulsionar seu negócio no mundo digital
               </p>*/}
             </div>
+          </FadeInSection>
 
-            {/* Cards serviços com efeito FadeIn em cascata */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-              {/* Serviço 1 */}
-              <ScaleFadeInSection delay={0} duration={800}>
-                <div className="bg-white rounded-lg shadow-lg overflow-hidden transition-all duration-700 flex flex-col h-full hover:scale-105">
-                  <div className="h-48 overflow-hidden">
-                    <img
-                      src="https://escolanexus.com.br/wp-content/uploads/2024/02/Consultoria-Empresarial-Basico.jpg"
-                      className="w-full h-full object-cover object-top"
-                    />
-                  </div>
-                  <div className="p-6">
-                    <h3 className="text-xl font-bold text-gray-900 mb-2">Consultoria Empresarial</h3>
-                    <p className="text-gray-600 mb-4">
-                      Tenha controle internos e financeiros adequados, faça a recuperação financeira de sua empresa ou recupere impostos.
-                    </p>
-                    <a href="#" className="text-blue-600 hover:text-blue-800 font-medium inline-flex items-center cursor-pointer whitespace-nowrap">
-                      Saiba mais <i className="fas fa-arrow-right ml-2"></i>
-                    </a>
-                  </div>
-                </div>
-              </ScaleFadeInSection>
-              {/* Serviço 2 */}
-              <ScaleFadeInSection delay={100} duration={800}>
-                <div className="bg-white rounded-lg shadow-lg overflow-hidden transition-all duration-700 flex flex-col h-full hover:scale-105">
-                  <div className="h-48 overflow-hidden">
-                    <img
-                      src="https://www.daexe.com.br/wp-content/uploads/2023/09/Uso-da-tecnologia-na-gestao-da-empresa.jpg"
-                      className="w-full h-full object-cover object-top"
-                    />
-                  </div>
-                  <div className="p-6">
-                    <h3 className="text-xl font-bold text-gray-900 mb-2">Assessoria</h3>
-                    <p className="text-gray-600 mb-4">
-                      Tenha um completo departamento pessoal, assessoria trabalhista e minimize os riscos de sua empresa.
-                    </p>
-                    <a href="#" className="text-blue-600 hover:text-blue-800 font-medium inline-flex items-center cursor-pointer whitespace-nowrap">
-                      Saiba mais <i className="fas fa-arrow-right ml-2"></i>
-                    </a>
-                  </div>
-                </div>
-              </ScaleFadeInSection>
-              {/* Serviço 3 */}
-              <ScaleFadeInSection delay={200} duration={800}>
-                <div className="bg-white rounded-lg shadow-lg overflow-hidden transition-all duration-700 flex flex-col h-full hover:scale-105">
-                  <div className="h-48 overflow-hidden">
-                    <img
-                      src="https://imagens.ebc.com.br/1WR6HAq5gbIitvLG2tFYVEIpwb4=/1170x700/smart/https://agenciabrasil.ebc.com.br/sites/default/files/thumbnails/image/imposto-de-renda_mcamgo_abr_030320221818-2.jpg"
-                      className="w-full h-full object-cover object-top"
-                    />
-                  </div>
-                  <div className="p-6">
-                    <h3 className="text-xl font-bold text-gray-900 mb-2">Pessoa Física</h3>
-                    <p className="text-gray-600 mb-4">
-                      Imposto de renda do profissional liberal (médicos, dentistas, engenheiros, etc) aplicando legislação vigente. Trabalhadores domésticos.
-                    </p>
-                    <a href="#" className="text-blue-600 hover:text-blue-800 font-medium inline-flex items-center cursor-pointer whitespace-nowrap">
-                      Saiba mais <i className="fas fa-arrow-right ml-2"></i>
-                    </a>
-                  </div>
-                </div>
-              </ScaleFadeInSection>
-              {/* Serviço 4 */}
-              <ScaleFadeInSection delay={400} duration={800}>
-                <div className="bg-white rounded-lg shadow-lg overflow-hidden transition-all duration-700 flex flex-col h-full hover:scale-105">
-                  <div className="h-48 overflow-hidden">
-                    <img
-                      src="https://wmartinscontabilidade.com.br/wp-content/uploads/2018/07/post-a-importancia-gestao-contabil-e-fiscal-wmartins-contabilidade.jpg"
-                      className="w-full h-full object-cover object-top"
-                    />
-                  </div>
-                  <div className="p-6">
-                    <h3 className="text-xl font-bold text-gray-900 mb-2">Contábil e Fiscal</h3>
-                    <p className="text-gray-600 mb-4">
-                      Terceirize com qualidade e customização sua contabilidade, fiscal e departamento financeiro.
-                    </p>
-                    <a href="#" className="text-blue-600 hover:text-blue-800 font-medium inline-flex items-center cursor-pointer whitespace-nowrap">
-                      Saiba mais <i className="fas fa-arrow-right ml-2"></i>
-                    </a>
-                  </div>
-                </div>
-              </ScaleFadeInSection>
-            </div>
-          </div>
-        </section>
-      </FadeInSection>
+          {/* Modalidades */}
+          <div className="relative flex flex-col items-center mb-[-100px] min-h-[700px] overflow-hidden">
 
-
-      {/* ========================================================================================================================================================================= */}
-      {/* Por que escolher a Renove */}
-
-
-      {/* Seção Por que escolher a Renove com cards sobrepondo a imagem */}
-      <section id="about" className="relative z-10 pb-0 _bg-gray-200">
-        <div className="max-w-7xl mx-auto px-4 _mb-5">
-          <div
-            className="text-center mb-[11.5rem] pt-20"
-          //animate={{ rotate: 360 }}
-          //transition={{ duration: 1 }}
-          >
-            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">Por que escolher a Renove?</h2>
-            <p className="text-lg text-gray-900 max-w-2xl mx-auto">
-              Nossos serviços vão além de apenas cumprir as exigências legais e do fisco e sim um conjunto de ferramentas e oportunidades para a gestão da sua empresa
-            </p>
-          </div>
-
-          <div className="relative flex justify-center">
-            <div
-              className="grid grid-cols-1 md:grid-cols-4 gap-8 bg-white/90 rounded-lg _shadow-2xl p-8 w-full _max-w-15xl z-20"
-              style={{ background: 'none', position: 'absolute', left: '50%', top: '0', transform: 'translate(-50%, -50%)', minWidth: '320px' }}
+            {/* Modalidade 1 */}
+            <motion.div
+              className="relative z-10 mb-[-150px] ml-[-300px] md:ml-[0px]"
+              initial={{ opacity: 0, x: 100, scale: 1 }}
+              animate={modalidadesAnimadas ? { opacity: 1, x: 0, scale: isHoveredModalidade1 ? 1.03 : 1 } : { opacity: 0, x: 100, scale: 1 }}
+              transition={{
+                opacity: { duration: 2.0, delay: 0.0, type: "spring", bounce: 0.5 },
+                x: { duration: 2.0, delay: 0.0, type: "spring", bounce: 0.5 },
+                scale: { duration: 1.0, delay: 0.0, type: "spring", bounce: 0.5 },
+              }}
+              onMouseEnter={() => setIsHoveredModalidade1(true)}
+              onMouseLeave={() => setIsHoveredModalidade1(false)}
             >
-              {/* Diferencial 1 */}
-              <FadeInSection className="delay-[200ms]">
-                <div className="bg-gray-50 rounded-lg p-8 text-center transition-all duration-300 shadow-2xl hover:shadow-lg flex flex-col h-full">
-                  <ScaleFadeInSection>
-                    <div className="text-blue-600 mb-4 inline-block p-4 bg-blue-100 rounded-full w-max mx-auto">
-                      <video src={webmFoguete} autoPlay loop muted playsInline className="w-12 h-12 mx-auto" style={{ display: 'block' }} />
-                    </div>
-                  </ScaleFadeInSection>
-                  <h3 className="text-xl font-bold text-gray-900 mb-3">Experiência Comprovada</h3>
-                  {/*<p className="text-gray-600">
-                    Desenvolvemos soluções sob medida para atender às necessidades específicas do seu negócio.
-                  </p>*/}
+              {/* Etiqueta 1 */}
+              <motion.div
+                className="absolute inset-0 bg-gradient-to-r from-black/20 to-black/80 rounded-[200px] my-auto h-[120px] overflow-hidden"
+                style={{ boxShadow: '4px 4px 15px #00000085' }}
+                initial={{ opacity: 0, width: 0 }}
+                animate={modalidadesAnimadas ? { opacity: 1, width: typeof window !== 'undefined' && window.innerWidth < 768 ? 380 : 500 } : { opacity: 0, width: 0 }}
+                transition={{
+                  opacity: { duration: 1.0, delay: 0.6 },
+                  width: { type: 'spring', stiffness: 90, damping: 10, delay: 0.6 },
+                }}
+              >
+                <div className='flex flex-col items-center justify-center h-full mt-[-9px] ml-[70px] md:ml-[200px]'>
+                  <span className="text-white text-[35px] _leading-tight block font-bold ">Guitarra</span>
+                  <button className="bg-transparent border-2 border-white text-white hover:bg-gray-500 px-8 py-1 rounded-md text-lg font-medium transition-all duration-300 !rounded-button cursor-pointer whitespace-nowrap"
+                    onClick={() => {
+                      window.open("https://wa.me/5561984574759?text=Olá!%20Vim%20do%20site%20e%20gostaria%20de%20mais%20informações%20sobre%20as%20aulas%20de%20guitarra", '_blank', 'noopener,noreferrer')
+                    }}
+                    //href="https://wa.me/5561984574759?text=Olá!%20Vim%20do%20site%20e%20gostaria%20de%20mais%20informações%20sobre%20as%20aulas%20de%20música"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    Saiba mais
+                  </button>
                 </div>
-              </FadeInSection>
+              </motion.div>
 
-              {/* Diferencial 2 */}
-              <FadeInSection className="delay-[400ms]">
-                <div className="bg-gray-50 rounded-lg p-8 text-center transition-all duration-300 shadow-2xl hover:shadow-lg flex flex-col h-full">
-                  <ScaleFadeInSection delay={100}>
-                    <div className="text-blue-600 mb-4 inline-block p-4 bg-blue-100 rounded-full w-max mx-auto">
-                      <video src={webmFinance} autoPlay loop muted playsInline className="w-12 h-12 mx-auto" style={{ display: 'block' }} />
-                    </div>
-                  </ScaleFadeInSection>
-                  <h3 className="text-xl font-bold text-gray-900 mb-3">Compreensão de negócios</h3>
-                  {/*<p className="text-gray-600">
-                    Equipe técnica disponível para resolver qualquer problema e garantir o funcionamento contínuo.
-                  </p>*/}
+              {/* Imagem musico 1 */}
+              <img
+                src={instrument_1}
+                className="h-[180px] md:h-[250px] mx-auto relative"
+              />
+            </motion.div>
+
+            {/* Modalidade 2 */}
+            <motion.div
+              ref={refModalidade2}
+              className="relative z-20 mb-[-300px] ml-[60px] mt-[3rem] md:mt-0 md:ml-[-410px]"
+              initial={{ opacity: 0, x: -100, scale: 1 }}
+              animate={modalidadesAnimadas ? { opacity: 1, x: 0, scale: isHoveredModalidade2 ? 1.03 : 1 } : { opacity: 0, x: -100, scale: 1 }}
+              transition={{
+                opacity: { duration: 2, delay: 1.0, type: "spring", bounce: 0.5 },
+                x: { duration: 2, delay: 1.0, type: "spring", bounce: 0.5 },
+                scale: { duration: 1, delay: 0.0, type: "spring", bounce: 0.5 },
+              }}
+              onMouseEnter={() => setIsHoveredModalidade2(true)}
+              onMouseLeave={() => setIsHoveredModalidade2(false)}
+            >
+
+              {/* Etiqueta 2 */}
+              <motion.div className="absolute inset-0 bg-gradient-to-r from-black/80 to-black/20 rounded-[200px] mt-[100px] h-[120px] _w-[500px] ml-auto overflow-hidden"
+                style={{ boxShadow: '4px 4px 15px #00000085' }}
+                initial={{ opacity: 0, width: 0 }}
+                animate={modalidadesAnimadas ? { opacity: 1, width: 500 } : { opacity: 0, width: 0 }}
+                transition={{
+                  opacity: { duration: 1.0, delay: 1.6 },
+                  width: { type: 'spring', stiffness: 70, damping: 10, delay: 1.6 },
+                }}
+              >
+                <div className='flex flex-col items-center justify-center h-full relative z-10 mt-[-9px] ml-[0px] md:ml-[-200px]'>
+                  <span className="text-white text-[35px] _leading-tight block font-bold ">Teclado</span>
+                  <button className="bg-transparent border-2 border-white text-white hover:bg-gray-500 px-8 py-1 rounded-md text-lg font-medium transition-all duration-300 !rounded-button cursor-pointer whitespace-nowrap"
+                    onClick={() => {
+                      window.open("https://wa.me/5561984574759?text=Olá!%20Vim%20do%20site%20e%20gostaria%20de%20mais%20informações%20sobre%20as%20aulas%20de%20teclado", '_blank', 'noopener,noreferrer')
+                    }}
+                  >
+                    Saiba mais
+                  </button>
                 </div>
-              </FadeInSection>
+              </motion.div>
 
-              {/* Diferencial 3 */}
-              <FadeInSection className="delay-[600ms]">
-                <div className="bg-gray-50 rounded-lg p-8 text-center transition-all duration-300 shadow-2xl hover:shadow-lg flex flex-col h-full">
-                  <ScaleFadeInSection delay={200}>
-                    <div className="text-blue-600 mb-4 inline-block p-4 bg-blue-100 rounded-full w-max mx-auto">
-                      <video src={webmChat} autoPlay loop muted playsInline className="w-12 h-12 mx-auto" style={{ display: 'block' }} />
-                    </div>
-                  </ScaleFadeInSection>
-                  <h3 className="text-xl font-bold text-gray-900 mb-3">Excelência na comunicação</h3>
-                  {/*<p className="text-gray-600">
-                    Nossos clientes experimentam crescimento real e mensurável após implementar nossas soluções.
-                  </p>*/}
+              {/* Imagem musico 2 */}
+              <img
+                src={instrument_2}
+                className="mt-[2rem] h-[300px] md:mt-0 md:h-[400px] mx-auto relative"
+              />
+            </motion.div>
+
+            {/* Modalidade 3 */}
+            <motion.div
+              className="relative z-30 ml-[-360px] mt-[4rem] md:ml-[0px] md:mt-0"
+              initial={{ opacity: 0, x: 100, scale: 1 }}
+              animate={modalidadesAnimadas ? { opacity: 1, x: 0, scale: isHoveredModalidade3 ? 1.03 : 1 } : { opacity: 0, x: 100, scale: 1 }}
+              transition={{
+                //duration: 2.0, delay: 2.0, type: "spring", bounce: 0.5,
+                opacity: { duration: 2, delay: 2.0, type: "spring", bounce: 0.5 },
+                x: { duration: 2, delay: 2.0, type: "spring", bounce: 0.5 },
+                scale: { duration: 1, delay: 0.0, type: "spring", bounce: 0.5 },
+              }}
+              onMouseEnter={() => setIsHoveredModalidade3(true)}
+              onMouseLeave={() => setIsHoveredModalidade3(false)}
+            >
+
+              {/* Etiqueta 3 */}
+              <motion.div className="absolute inset-0 bg-gradient-to-r from-black/20 to-black/80 rounded-[200px] ml-[200px] h-[120px] mt-[150px] md:mt-[100px] overflow-hidden"
+                style={{ boxShadow: '4px 4px 15px #00000085' }}
+                initial={{ opacity: 0, width: 0 }}
+                animate={modalidadesAnimadas ? { opacity: 1, width: typeof window !== 'undefined' && window.innerWidth < 768 ? 340 : 500 } : { opacity: 0, width: 0 }}
+                transition={{
+                  opacity: { duration: 1.0, delay: 2.6 },
+                  width: { type: 'spring', stiffness: 70, damping: 10, delay: 2.6 },
+                }}
+              >
+                <div className='flex flex-col items-center justify-center h-full mt-[-9px] ml-[130px] md:ml-[200px]'>
+                  <span className="text-white text-[35px] _leading-tight block font-bold ">Violão</span>
+                  <button className="bg-transparent border-2 border-white text-white hover:bg-gray-500 px-8 py-1 rounded-md text-lg font-medium transition-all duration-300 !rounded-button cursor-pointer whitespace-nowrap"
+                    onClick={() => {
+                      window.open("https://wa.me/5561984574759?text=Olá!%20Vim%20do%20site%20e%20gostaria%20de%20mais%20informações%20sobre%20as%20aulas%20de%20violão", '_blank', 'noopener,noreferrer')
+                    }}
+                  >
+                    Saiba mais
+                  </button>
                 </div>
-              </FadeInSection>
+              </motion.div>
 
-              {/* Diferencial 4 */}
-              <FadeInSection className="delay-[600ms]">
-                <div className="bg-gray-50 rounded-lg p-8 text-center transition-all duration-300 shadow-2xl hover:shadow-lg flex flex-col h-full">
-                  <ScaleFadeInSection delay={300}>
-                    <div className="text-blue-600 mb-4 inline-block p-4 bg-blue-100 rounded-full w-max mx-auto">
-                      <video src={webmRefresh} autoPlay loop muted playsInline className="w-12 h-12 mx-auto" style={{ display: 'block' }} />
-                    </div>
-                  </ScaleFadeInSection>
-                  <h3 className="text-xl font-bold text-gray-900 mb-3">Em constantemente atualização</h3>
-                  {/*<p className="text-gray-600">
-                    Nossos clientes experimentam crescimento real e mensurável após implementar nossas soluções.
-                  </p>*/}
-                </div>
-              </FadeInSection>
+              {/* Imagem musico 3 */}
+              <img
+                src={instrument_3}
+                className="h-[180px] mt-[7rem] md:mt-0 md:h-[250px] mx-auto relative ml-[110px]"
+              />
+            </motion.div>
 
-            </div>
-            {/* Espaço para garantir altura da seção antes da imagem */}
-            <div className="h-[180px] w-full"></div>
           </div>
         </div>
       </section>
 
 
       {/* ========================================================================================================================================================================= */}
-      {/* Imagem de transição com degradê azul escuro para transparente (de baixo para cima) */}
-      <div className="relative z-0" style={{ marginTop: '-600px' }}>
-        <img
-          src={imgFundo1}
-          //title="Transição"
-          className="w-full object-cover object-top"
-          style={{ minHeight: '200px', maxHeight: '920px' }}
-        />
-        {/* Degradê azul escuro para transparente, de baixo para cima */}
+      {/* Sobre o estabelecimento */}
+      <section
+        id="about"
+        className="relative min-h-[60vh] flex items-center justify-center overflow-hidden md:h-[850px]"
+        data-scroll-section
+        style={{
+          position: 'relative',
+          zIndex: 2,
+        }}
+      >
+        {/* Imagem de fundo fixa/parallax */}
         <div
-          className="absolute left-0 bottom-0 w-full h-full pointer-events-none"
+          className="absolute inset-0 w-full h-full bg-center bg-cover bg-no-repeat"
+          data-scroll
+          data-scroll-speed="-5"
           style={{
-            background: 'linear-gradient(0deg, #105f8a 0%, rgba(16,95,138,0.85) 20%, rgba(16,95,138,0.3) 60%, rgb(229 231 235 / var(--tw-bg-opacity, 1)) 100%)', // linear-gradient(0deg, #105f8a 0%, rgba(16,95,138,0.85) 20%, rgba(16,95,138,0.3) 60%, transparent 100%)
-            zIndex: 2,
+            backgroundImage: `url(${imgTrans1})`,
+            backgroundPosition: 'center',
+            backgroundSize: 'cover',
+            zIndex: 1,
+            filter: 'brightness(0.7) blur(0.5px)',
           }}
+          aria-hidden="true"
         ></div>
-      </div>
+        {/* Conteúdo sobreposto */}
+        <div className="relative z-10 max-w-3xl mx-auto text-center py-24 px-6">
+          <h2 className="text-4xl md:text-5xl font-bold text-white mb-6 drop-shadow-lg">Sobre o estabelecimento</h2>
+          <p className="text-lg md:text-xl text-gray-100 mb-8 drop-shadow-md">
+            Nossa academia de música é referência em ensino musical, oferecendo aulas de diversos instrumentos com professores experientes e apaixonados por música. Venha fazer parte dessa história!
+          </p>
+        </div>
+      </section>
 
 
 
       {/* ========================================================================================================================================================================= */}
-      {/* Plataformas seção */}
-      <div className="bg-[#105f8a]">
-        <section id="contact" className="py-20 px-4 _bg-white mt-[-200px] relative">
-          <div className="max-w-7xl mx-auto ">
 
-            <ScaleFadeInSection>
-              <div className="text-center mb-16">
-                <h2 className="text-3xl md:text-4xl font-bold text-gray-100 mb-4">Conheça nossas plataformas</h2>
-                {/*<p className="text-lg text-gray-200 max-w-2xl mx-auto">
-                  Estamos prontos para ajudar você a transformar seu negócio através da tecnologia
-                </p>*/}
-              </div>
-            </ScaleFadeInSection>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-12 relative z-[3]">
-
-              {/* --------------------------------------------------------------------- */}
-              {/* Plataforma 1 */}
-              <ScaleFadeInSection duration={800} delay={0} onShow={() => setPlataforma1DivVisible(true)}>
-                <div
-                  className="bg-gray-50 p-8 rounded-lg"
-                  style={{ boxShadow: '4px 4px 15px #00000085' }}
-                  onMouseEnter={() => setPlataforma1Hovered(true)}
-                  onMouseLeave={() => setPlataforma1Hovered(false)}
-                >
-                  <PlataformaImg
-                    src={imgLogoEcontador}
-                    minHeight="20px"
-                    maxHeight="80px"
-                    visible={plataforma1ImgVisible}
-                    delay={200}
-                    scale={plataforma1Hovered ? 1.10 : undefined}
-                  />
-                  <ul className="space-y-1 mb-10 list-disc pl-6">
-                    <li><span className="text-gray-800">Agilizar a contratação de funcionários e o envio de informações ao eSocial</span></li>
-                    <li><span className="text-gray-800">Prestar atendimento qualificado para os clientes mesmo de outras localidades</span></li>
-                    <li><span className="text-gray-800">Atendem a sua empresa com mais rapidez</span></li>
-                    <li><span className="text-gray-800">Reduzem o seu custo de impressões de documentos</span></li>
-                    <li><span className="text-gray-800">Enviam e recebe dados da sua empresa por um canal seguro</span></li>
-                    <li><span className="text-gray-800">Definem quais abas de serviços podem ser acessadas por seus funcionários</span></li>
-                    <li><span className="text-gray-800">Simplificam o controle das CNDs e aumente a produtividade de sua equipe</span></li>
-                  </ul>
-                  <button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-md text-lg font-medium transition-all duration-300 w-full !rounded-button">
-                    Acessar
-                  </button>
-                </div>
-              </ScaleFadeInSection>
-
-              {/* --------------------------------------------------------------------- */}
-              {/* Plataforma 2 */}
-              <ScaleFadeInSection duration={800} delay={200} onShow={() => setPlataforma2DivVisible(true)}>
-                <div
-                  className="bg-gray-50 p-8 rounded-lg h-full flex flex-col justify-between"
-                  style={{ boxShadow: '4px 4px 15px #00000085' }}
-                  onMouseEnter={() => setPlataforma2Hovered(true)}
-                  onMouseLeave={() => setPlataforma2Hovered(false)}
-                >
-                  <PlataformaImg
-                    src={imgLogoNfStock}
-                    minHeight="20px"
-                    maxHeight="70px"
-                    visible={plataforma2ImgVisible}
-                    delay={300}
-                    scale={plataforma2Hovered ? 1.10 : undefined}
-                  />
-                  <ul className="space-y-1 mb-10 list-disc pl-6">
-                    <li><span className="text-gray-800">O nosso sistema do Escrita Fiscal dispensa a importação manual dos arquivos</span></li>
-                    <li><span className="text-gray-800">Importa do site da Receita Federal as notas fiscais eletrônicas emitidas contra sua empresa</span></li>
-                    <li><span className="text-gray-800">Armazena as suas notas fiscais eletrônicas por 6 (seis) anos, com total segurança</span></li>
-                    <li><span className="text-gray-800">Permite a consulta de todas as notas fiscais emitidas nos ultimos 6 anos</span></li>
-                  </ul>
-                  <button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-md text-lg font-medium transition-all duration-300 w-full !rounded-button">
-                    Acessar
-                  </button>
-                </div>
-              </ScaleFadeInSection>
-            </div>
-            {/*<FadeInSection className="delay-[600ms]">
-                <div className="bg-gray-50 p-8 rounded-lg h-full flex flex-col justify-between">
-                  <h3 className="text-2xl font-bold text-gray-900 mb-6">Redes sociais</h3>
-                  <div className="flex space-x-4">
-                    <a href="#" className="bg-blue-600 text-white p-3 rounded-full hover:bg-blue-700 transition-colors duration-300">
-                      <i className="fab fa-facebook-f"></i>
-                    </a>
-                    <a href="#" className="bg-blue-600 text-white p-3 rounded-full hover:bg-blue-700 transition-colors duration-300">
-                      <i className="fab fa-instagram"></i>
-                    </a>
-                    <a href="#" className="bg-blue-600 text-white p-3 rounded-full hover:bg-blue-700 transition-colors duration-300">
-                      <i className="fab fa-linkedin-in"></i>
-                    </a>
-                    <a href="#" className="bg-blue-600 text-white p-3 rounded-full hover:bg-blue-700 transition-colors duration-300">
-                      <i className="fab fa-youtube"></i>
-                    </a>
-                  </div>
-                </div>
-              </FadeInSection>*/}
-          </div>
-          {/* -------------------------------------------------------------------------------------------------------------------------- */}
-          {/* Borda inferior com degradê transparente para a cor da próxima seção */}
-          {/*<div className="absolute bottom-0 left-0 w-full" style={{ height: '400px', zIndex: 1 }}>
-            <div style={{ width: '100%', height: '100%', background: 'linear-gradient(to top, #e5e7eb 0%, transparent 100%)' }}></div>
-          </div>*/}
-
-        </section>
-      </div>
+      {/* Avaliações */}
+      <section id='avaliações' className="py-20 px-4 _mb-[150px] bg-[#cbcbcb] relative" data-scroll-section
+        style={{
+          boxShadow: '0px -10px 20px #000000a2',
+          zIndex: 5
+        }}
+      >
+        <div className="max-w-full  mx-auto text-center">
+          <h2 className="text-4xl md:text-5xl font-bold mb-1 text-gray-800">O que dizem sobre nós</h2>
+          <a href="https://www.google.com/maps/place/Academia+de+Guitarra+e+Violão+-+Prof:+Samuel+Mendes/@-15.6550892,-47.7930181,17z/data=!4m8!3m7!1s0x935a3f97bf521117:0xc2a8796292aba74b!8m2!3d-15.6550892!4d-47.7930181!9m1!1b1!16s%2Fg%2F11qq3_6d8n?authuser=0&hl=pt-BR&entry=ttu&g_ep=EgoyMDI1MDcyOS4wIKXMDSoASAFQAw%3D%3D"
+            target="_blank"
+            rel="noopener noreferrer"
+            className='cursor-pointer'
+          >
+            <h5 className="text-lg md:text-xl text-gray-600 mb-10">Powered by Google</h5>
+          </a>
+          <FadeInSection>
+            <AvaliacoesCarrossel />
+          </FadeInSection>
+        </div>
+      </section>
 
 
 
-      {/* Pronto para transformar seu negócio */}
+
+      {/* ========================================================================================================================================================================= */}
+      {/* Pronto para iniciar sua carreira */}
       <motion.section
+        id='contact'
+        data-scroll-section
         ref={motionSectionRef}
         className="py-20 px-4 bg-[#e5e7eb] _bg-[#2563eb] text-black relative overflow-hidden rounded-t-[30px] _mt-[-180px]"
-        style={{ boxShadow: '0px -10px 20px #00000078' }}
-        initial={{ marginTop: '0px' }}
-        animate={motionSectionAnimated ? { marginTop: '-180px' } : { marginTop: '0px' }}
+        style={{ boxShadow: '0px -10px 20px #00000078', zIndex: 10 }}
+        initial={{ top: 180 }}
+        animate={motionSectionAnimated ? { top: 0 } : { top: 180 }}
         transition={{
           duration: 1.0,
-          marginTop: { type: "spring", visualDuration: 0.4, bounce: 0.5 },
+          top: { type: "spring", visualDuration: 0.4, bounce: 0.5 },
         }}
       >
         <FadeInSection className="delay-[200ms]">
-          <div className="max-w-7xl mx-auto text-center relative mt-[200px]" style={{ zIndex: 2 }}>
-            <h2 className="text-3xl md:text-4xl font-bold mb-6">Pronto para transformar seu negócio?</h2>
+          <div className="max-w-7xl mx-auto text-center relative mt-[20px] mb-[40px]" style={{ zIndex: 20 }}>
+            <h2 className="text-3xl md:text-4xl font-bold mb-6">Pronto para iniciar sua carreira musical?</h2>
             <p className="text-xl mb-8 max-w-2xl mx-auto">
-              Entre em contato hoje mesmo e descubra como nossos serviços podem impulsionar seu negócio.
+              Entre em contato hoje mesmo e descubra como impulsionar seus talentos musicais
             </p>
             <div className="flex flex-col sm:flex-row justify-center gap-4">
-              <button className="bg-black text-white hover:bg-gray-800 px-8 py-3 rounded-md text-lg font-medium transition-all duration-300 !rounded-button cursor-pointer whitespace-nowrap">
-                Sobre a Renove
+              <button className="bg-black text-white hover:bg-gray-800 px-8 py-3 rounded-md text-lg font-medium transition-all duration-300 !rounded-button cursor-pointer whitespace-nowrap"
+                onClick={() => {
+                  window.open("https://wa.me/5561984574759?text=Olá!%20Vim%20do%20site%20e%20gostaria%20de%20mais%20informações%20sobre%20as%20aulas%20de%20música", '_blank', 'noopener,noreferrer')
+                }}
+              >
+                Eu quero começar
               </button>
-              <button className="bg-transparent border-2 border-black hover:bg-gray-300 px-8 py-3 rounded-md text-lg font-medium transition-all duration-300 !rounded-button cursor-pointer whitespace-nowrap">
+              {/*<button className="bg-transparent border-2 border-black hover:bg-gray-300 px-8 py-3 rounded-md text-lg font-medium transition-all duration-300 !rounded-button cursor-pointer whitespace-nowrap">
                 Falar com Consultor
-              </button>
+              </button>*/}
             </div>
           </div>
         </FadeInSection>
       </motion.section>
 
 
-
+      {/* ========================================================================================================================================================================= */}
       {/* Footer */}
 
-      <footer className="bg-gray-900 text-white pt-16 pb-8 px-4">
+      <footer
+        className="bg-gray-900 text-white pt-16 pb-8 px-4"
+        data-scroll-section
+      >
         <FadeInSection className="delay-[200ms]">
           <div className="max-w-7xl mx-auto">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 mb-12">
+            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-3 gap-4 mb-12">
               {/* Coluna 1 - Sobre */}
               <div>
-                <h3 className="text-xl font-bold mb-4">Renove</h3>
+                <h3 className="text-xl font-bold mb-4">Academia de música Samuel Mendes</h3>
                 <p className="text-gray-400 mb-4">
-                  Transformando negócios através de soluções inovadoras desde 2015.
+                  Impulsionando talentos desde 2020.
                 </p>
                 <div className="flex space-x-4">
                   <a href="#" className="text-gray-400 hover:text-white transition-colors duration-300 cursor-pointer">
@@ -747,14 +740,13 @@ const App = () => { // React.FC
                 <h3 className="text-xl font-bold mb-4">Links Rápidos</h3>
                 <ul className="space-y-2">
                   <li><a href="#" className="text-gray-400 hover:text-white transition-colors duration-300 cursor-pointer">Início</a></li>
-                  <li><a href="#" className="text-gray-400 hover:text-white transition-colors duration-300 cursor-pointer">Serviços</a></li>
+                  <li><a href="#" className="text-gray-400 hover:text-white transition-colors duration-300 cursor-pointer">Modalidades</a></li>
                   <li><a href="#" className="text-gray-400 hover:text-white transition-colors duration-300 cursor-pointer">Sobre Nós</a></li>
-                  <li><a href="#" className="text-gray-400 hover:text-white transition-colors duration-300 cursor-pointer">Blog</a></li>
                   <li><a href="#" className="text-gray-400 hover:text-white transition-colors duration-300 cursor-pointer">Contato</a></li>
                 </ul>
               </div>
               {/* Coluna 3 - Serviços */}
-              <div>
+              {/*<div>
                 <h3 className="text-xl font-bold mb-4">Nossos Serviços</h3>
                 <ul className="space-y-2">
                   <li><a href="#" className="text-gray-400 hover:text-white transition-colors duration-300 cursor-pointer">Administração Interna e Financeira</a></li>
@@ -763,7 +755,7 @@ const App = () => { // React.FC
                   <li><a href="#" className="text-gray-400 hover:text-white transition-colors duration-300 cursor-pointer">Abertura, Alterações e Encerramento de Empresas</a></li>
                   <li><a href="#" className="text-gray-400 hover:text-white transition-colors duration-300 cursor-pointer">Modelagem e Avaliações Econômico-financeira</a></li>
                 </ul>
-              </div>
+              </div>*/}
               {/* Coluna 4 - Contato */}
               <div>
                 <h3 className="text-xl font-bold mb-4">Contato</h3>
@@ -774,15 +766,15 @@ const App = () => { // React.FC
                   </li>*/}
                   <li className="flex items-start">
                     <i className="fas fa-phone-alt mt-1 mr-3 text-blue-500"></i>
-                    <span className="text-gray-400">(99) 12345-6789</span>
+                    <span className="text-gray-400">(61) 98457-4759</span>
                   </li>
                   <li className="flex items-start">
                     <i className="fas fa-envelope mt-1 mr-3 text-blue-500"></i>
-                    <span className="text-gray-400">contato@email.com.br</span>
+                    <span className="text-gray-400">Samuel_luefstrike@gmail.com</span>
                   </li>
                   <li className="flex items-start">
                     <i className="fas fa-clock mt-1 mr-3 text-blue-500"></i>
-                    <span className="text-gray-400">Seg-Sex: 9h às 18h</span>
+                    <span className="text-gray-400">Seg-Sex: 9h às 20h</span>
                   </li>
                 </ul>
               </div>
@@ -790,7 +782,7 @@ const App = () => { // React.FC
             <div className="border-t border-gray-800 pt-8 mt-8">
               <div className="flex flex-col md:flex-row justify-between items-center">
                 <p className="text-gray-400 text-sm mb-4 md:mb-0">
-                  &copy; 2025 Renove Contabilidade. Todos os direitos reservados.
+                  &copy; 2025 Academia de música Samuel Mendes. Todos os direitos reservados.
                 </p>
                 <div className="flex space-x-4">
                   <a href="#" className="text-gray-400 hover:text-white text-sm transition-colors duration-300 cursor-pointer">Política de Privacidade</a>
@@ -800,23 +792,30 @@ const App = () => { // React.FC
             </div>
           </div>
         </FadeInSection>
-
       </footer>
 
       {/* WhatsApp Button */}
-      <div className="fixed bottom-8 right-8 flex items-center z-50">
-        <div className="bg-green-600 text-white px-4 py-2 rounded-l-full shadow-lg">
-          <span className="whitespace-nowrap">Fale agora conosco</span>
+      <a
+        href="https://wa.me/5561984574759?text=Olá!%20Vim%20do%20site%20e%20gostaria%20de%20mais%20informações%20sobre%20as%20aulas%20de%20música."
+        target="_blank"
+        rel="noopener noreferrer"
+      >
+        <div className="fixed bottom-8 right-8 flex items-center z-50"
+          onMouseEnter={() => setWaBtnHovered(true)}
+          onMouseLeave={() => setWaBtnHovered(false)}
+        > {/* shadow-lg */}
+
+          <div className="bg-green-600 text-white px-4 py-2 rounded-full _shadow-lg mr-[-25px] pr-[30px]">
+            <span className="whitespace-nowrap">Fale agora conosco</span>
+          </div>
+          <div
+            className={`_bg-green-600 text-white p-4 rounded-full _shadow-lg _hover:bg-green-700 transition-colors duration-300 flex items-center justify-center ${waBtnHovered ? 'bg-green-700' : 'bg-green-600'}`}
+          >
+            <i className="fab fa-whatsapp text-2xl"></i>
+          </div>
         </div>
-        <a
-          href="https://wa.me/5561123456789"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="bg-green-600 text-white p-4 rounded-full shadow-lg hover:bg-green-700 transition-colors duration-300 flex items-center justify-center"
-        >
-          <i className="fab fa-whatsapp text-2xl"></i>
-        </a>
-      </div>
+      </a>
+
     </div >
   );
 }
