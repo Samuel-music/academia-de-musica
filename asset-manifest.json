@@ -1,0 +1,30 @@
+{
+  "files": {
+    "main.css": "/academia-de-musica/static/css/main.181edf58.css",
+    "main.js": "/academia-de-musica/static/js/main.b4fd059c.js",
+    "static/media/piano-3.jpg": "/academia-de-musica/static/media/piano-3.ea8127bad177ab00b4b9.jpg",
+    "static/media/tocando-guitarra-1.png": "/academia-de-musica/static/media/tocando-guitarra-1.8d562e0ce0ba83baf7ca.png",
+    "static/media/violão-3.jpg": "/academia-de-musica/static/media/violão-3.ae8ad6de83f22b9d17c6.jpg",
+    "static/media/tocando-violão-1.png": "/academia-de-musica/static/media/tocando-violão-1.1f9d21d80d1ac920bdb3.png",
+    "static/media/fa-solid-900.ttf": "/academia-de-musica/static/media/fa-solid-900.2582b0e4bcf85eceead0.ttf",
+    "static/media/violão-1.jpeg": "/academia-de-musica/static/media/violão-1.0bd9f8760cfbbdd44c33.jpeg",
+    "static/media/guitarra-1.jpg": "/academia-de-musica/static/media/guitarra-1.0257b5291b3de6b20572.jpg",
+    "static/media/fa-brands-400.ttf": "/academia-de-musica/static/media/fa-brands-400.1815e00441357e01619e.ttf",
+    "static/media/fa-solid-900.woff2": "/academia-de-musica/static/media/fa-solid-900.2463b90d9a316e4e5294.woff2",
+    "static/media/Logo-Samuel-texto-SF.png": "/academia-de-musica/static/media/Logo-Samuel-texto-SF.a57af295455dc19e4b63.png",
+    "static/media/fa-brands-400.woff2": "/academia-de-musica/static/media/fa-brands-400.c210719e60948b211a12.woff2",
+    "static/media/fa-regular-400.ttf": "/academia-de-musica/static/media/fa-regular-400.914997e1bdfc990d0897.ttf",
+    "static/media/tocando-teclado-2.png": "/academia-de-musica/static/media/tocando-teclado-2.3d9c3df2f66edd8978ef.png",
+    "static/media/fa-regular-400.woff2": "/academia-de-musica/static/media/fa-regular-400.89999bdf5d835c012025.woff2",
+    "static/media/fundo-1.jpg": "/academia-de-musica/static/media/fundo-1.cecf2c6d6a4467b446ee.jpg",
+    "static/media/fa-v4compatibility.ttf": "/academia-de-musica/static/media/fa-v4compatibility.da94ef451f4969af06e6.ttf",
+    "static/media/fa-v4compatibility.woff2": "/academia-de-musica/static/media/fa-v4compatibility.ea8f94e1d22e0d35ccd4.woff2",
+    "index.html": "/academia-de-musica/index.html",
+    "main.181edf58.css.map": "/academia-de-musica/static/css/main.181edf58.css.map",
+    "main.b4fd059c.js.map": "/academia-de-musica/static/js/main.b4fd059c.js.map"
+  },
+  "entrypoints": [
+    "static/css/main.181edf58.css",
+    "static/js/main.b4fd059c.js"
+  ]
+}
