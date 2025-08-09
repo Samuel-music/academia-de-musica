@@ -1,7 +1,7 @@
 {
   "files": {
-    "main.css": "/academia-de-musica/static/css/main.b5dd9347.css",
-    "main.js": "/academia-de-musica/static/js/main.2f37de6e.js",
+    "main.css": "/academia-de-musica/static/css/main.47c2588b.css",
+    "main.js": "/academia-de-musica/static/js/main.0518e719.js",
     "static/media/piano-3.jpg": "/academia-de-musica/static/media/piano-3.ea8127bad177ab00b4b9.jpg",
     "static/media/tocando-guitarra-1.png": "/academia-de-musica/static/media/tocando-guitarra-1.8d562e0ce0ba83baf7ca.png",
     "static/media/violão-3.jpg": "/academia-de-musica/static/media/violão-3.ae8ad6de83f22b9d17c6.jpg",
@@ -20,11 +20,11 @@
     "static/media/fa-v4compatibility.ttf": "/academia-de-musica/static/media/fa-v4compatibility.da94ef451f4969af06e6.ttf",
     "static/media/fa-v4compatibility.woff2": "/academia-de-musica/static/media/fa-v4compatibility.ea8f94e1d22e0d35ccd4.woff2",
     "index.html": "/academia-de-musica/index.html",
-    "main.b5dd9347.css.map": "/academia-de-musica/static/css/main.b5dd9347.css.map",
-    "main.2f37de6e.js.map": "/academia-de-musica/static/js/main.2f37de6e.js.map"
+    "main.47c2588b.css.map": "/academia-de-musica/static/css/main.47c2588b.css.map",
+    "main.0518e719.js.map": "/academia-de-musica/static/js/main.0518e719.js.map"
   },
   "entrypoints": [
-    "static/css/main.b5dd9347.css",
-    "static/js/main.2f37de6e.js"
+    "static/css/main.47c2588b.css",
+    "static/js/main.0518e719.js"
   ]
 }
